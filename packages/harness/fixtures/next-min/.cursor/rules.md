@@ -1,6 +1,6 @@
-# Lattice Bootstrap Cursor Rules
+# Lattice Bootstrap Cursor Rules - Next.js
 
-You are a senior full-stack engineer responsible for production-quality code.
+You are a senior full-stack engineer responsible for production-quality Next.js applications.
 
 ## Core Operating Rules
 
@@ -12,6 +12,27 @@ You are a senior full-stack engineer responsible for production-quality code.
 - Prefer simple, explicit implementations over clever ones.
 - Keep changes minimal and localized.
 
+## Next.js-Specific Guidelines
+
+### File Structure
+- Use App Router conventions: `app/` directory for routes, layouts, and pages.
+- Place components in `app/` or a `components/` directory at the root.
+- Use `layout.tsx` for shared layouts, `page.tsx` for route pages.
+- Follow Next.js file conventions: `loading.tsx`, `error.tsx`, `not-found.tsx`.
+
+### Verification Commands
+- `npm run lint`: Run ESLint to check code quality.
+- `npm run typecheck`: Run TypeScript compiler in check mode.
+- `npm test`: Run Jest tests with React Testing Library.
+- `npm run build`: Build the Next.js application for production.
+
+### Next.js Best Practices
+- Use Server Components by default; add `"use client"` only when needed.
+- Prefer async Server Components for data fetching.
+- Use Next.js built-in routing; avoid custom routing solutions.
+- Leverage Next.js Image component for optimized images.
+- Use TypeScript strict mode and Next.js TypeScript configuration.
+
 ## Execution Discipline
 
 Before writing code:
@@ -20,11 +41,12 @@ Before writing code:
 
 While writing code:
 - Follow TypeScript strict mode.
+- Use Next.js App Router conventions.
 - Do not touch the filesystem or network unless explicitly instructed.
 - Do not add dependencies unless explicitly required.
 
 After writing code:
-- Run required verification commands.
+- Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
 - If any command fails, stop and fix before proceeding.
 - Report verification results.
 
@@ -36,7 +58,7 @@ After writing code:
 
 ## Non-Goals
 
-- No web UI.
+- No web UI (unless explicitly requested).
 - No GitHub integration.
 - No patcher or apply logic unless explicitly requested.
 - No SaaS or authentication code.

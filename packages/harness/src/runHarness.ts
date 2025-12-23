@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve } from 'path';
 import { execSync } from 'child_process';
 import { Renderer } from '@lattice/engine';
 import { InMemoryPluginRegistry } from '@lattice/engine';
@@ -39,7 +39,12 @@ dist/
   await fs.writeFile(join(fixtureDir, '.gitignore'), gitignore);
 }
 
-function runCommand(command: string, cwd: string): void {
+interface CommandResult {
+  status: 'pass' | 'fail';
+  exitCode: number;
+}
+
+function runCommand(command: string, cwd: string): CommandResult {
   console.log(`Running: ${command}`);
   try {
     const result = execSync(command, {
@@ -51,6 +56,7 @@ function runCommand(command: string, cwd: string): void {
     if (result) {
       console.log(result);
     }
+    return { status: 'pass', exitCode: 0 };
   } catch (error: any) {
     if (error.stdout) {
       console.log(error.stdout);
@@ -58,9 +64,24 @@ function runCommand(command: string, cwd: string): void {
     if (error.stderr) {
       console.error(error.stderr);
     }
+    const exitCode = error.status || error.code || 1;
     console.error(`Command failed: ${command}`);
-    throw error;
+    return { status: 'fail', exitCode };
   }
+}
+
+interface FixtureResult {
+  fixtureName: string;
+  stack: 'nextjs' | 'expo-eas';
+  startTime: string;
+  endTime: string;
+  durationMs: number;
+  commands: Array<{
+    command: string;
+    status: 'pass' | 'fail';
+    exitCode: number;
+  }>;
+  overallStatus: 'pass' | 'fail';
 }
 
 async function runFixture(
@@ -68,8 +89,11 @@ async function runFixture(
   plugin: any,
   projectType: 'nextjs' | 'expo-eas',
   buildCommand: string
-): Promise<void> {
+): Promise<FixtureResult> {
   console.log(`\n=== Running ${projectType} fixture ===`);
+
+  const startTime = new Date().toISOString();
+  const fixtureName = projectType === 'nextjs' ? 'next-min' : 'expo-min';
 
   // Preserve lockfile if it exists (it should be committed to fixtures)
   const lockFile = join(fixtureDir, 'package-lock.json');
@@ -107,22 +131,162 @@ async function runFixture(
   }
 
   console.log('Running verification commands...');
+  const commands: Array<{ command: string; status: 'pass' | 'fail'; exitCode: number }> = [];
+  
   // Always use npm ci - lockfile should always exist
-  runCommand('npm ci', fixtureDir);
-  runCommand('npm run lint', fixtureDir);
-  runCommand('npm run typecheck', fixtureDir);
-  runCommand('npm test', fixtureDir);
-  runCommand(buildCommand, fixtureDir);
+  const ciResult = runCommand('npm ci', fixtureDir);
+  commands.push({ command: 'npm ci', ...ciResult });
+  if (ciResult.status === 'fail') {
+    throw new Error(`npm ci failed with exit code ${ciResult.exitCode}`);
+  }
+
+  const lintResult = runCommand('npm run lint', fixtureDir);
+  commands.push({ command: 'npm run lint', ...lintResult });
+  if (lintResult.status === 'fail') {
+    throw new Error(`npm run lint failed with exit code ${lintResult.exitCode}`);
+  }
+
+  const typecheckResult = runCommand('npm run typecheck', fixtureDir);
+  commands.push({ command: 'npm run typecheck', ...typecheckResult });
+  if (typecheckResult.status === 'fail') {
+    throw new Error(`npm run typecheck failed with exit code ${typecheckResult.exitCode}`);
+  }
+
+  const testResult = runCommand('npm test', fixtureDir);
+  commands.push({ command: 'npm test', ...testResult });
+  if (testResult.status === 'fail') {
+    throw new Error(`npm test failed with exit code ${testResult.exitCode}`);
+  }
+
+  const buildResult = runCommand(buildCommand, fixtureDir);
+  commands.push({ command: buildCommand, ...buildResult });
+  if (buildResult.status === 'fail') {
+    throw new Error(`${buildCommand} failed with exit code ${buildResult.exitCode}`);
+  }
+
+  const endTime = new Date().toISOString();
+  const durationMs = new Date(endTime).getTime() - new Date(startTime).getTime();
+  
+  const overallStatus = commands.every(cmd => cmd.status === 'pass') ? 'pass' : 'fail';
 
   console.log(`${projectType} fixture completed successfully!`);
+
+  return {
+    fixtureName,
+    stack: projectType,
+    startTime,
+    endTime,
+    durationMs,
+    commands,
+    overallStatus,
+  };
+}
+
+async function getLatticeVersion(): Promise<string> {
+  try {
+    const rootPackageJson = join(__dirname, '..', '..', '..', 'package.json');
+    const content = await fs.readFile(rootPackageJson, 'utf-8');
+    const pkg = JSON.parse(content);
+    return pkg.version || '0.0.0';
+  } catch {
+    try {
+      const cliPackageJson = join(__dirname, '..', '..', 'cli', 'package.json');
+      const content = await fs.readFile(cliPackageJson, 'utf-8');
+      const pkg = JSON.parse(content);
+      return pkg.version || '0.0.0';
+    } catch {
+      return '0.0.0';
+    }
+  }
 }
 
 async function runHarness(): Promise<void> {
   console.log('Starting harness...');
 
-  await runFixture(NEXT_FIXTURE_DIR, new NextJsPlugin(), 'nextjs', 'npm run build');
-  await runFixture(EXPO_FIXTURE_DIR, new ExpoEasPlugin(), 'expo-eas', 'npm run typecheck');
+  const results: FixtureResult[] = [];
+  const failedFixtures: string[] = [];
 
+  try {
+    const nextResult = await runFixture(NEXT_FIXTURE_DIR, new NextJsPlugin(), 'nextjs', 'npm run build');
+    results.push(nextResult);
+    if (nextResult.overallStatus === 'fail') {
+      failedFixtures.push('next-min');
+    }
+  } catch (error) {
+    failedFixtures.push('next-min');
+    // Preserve failing fixture - don't delete it
+    console.error(`next-min fixture failed and will be preserved for inspection`);
+    throw error;
+  }
+
+  try {
+    const expoResult = await runFixture(EXPO_FIXTURE_DIR, new ExpoEasPlugin(), 'expo-eas', 'npm run typecheck');
+    results.push(expoResult);
+    if (expoResult.overallStatus === 'fail') {
+      failedFixtures.push('expo-min');
+    }
+  } catch (error) {
+    failedFixtures.push('expo-min');
+    // Preserve failing fixture - don't delete it
+    console.error(`expo-min fixture failed and will be preserved for inspection`);
+    throw error;
+  }
+
+  // Write scorecard
+  const latticeVersion = await getLatticeVersion();
+  const gitSha = process.env.GITHUB_SHA || undefined;
+
+  const scorecard = {
+    latticeVersion,
+    ...(gitSha && { gitSha }),
+    fixtures: results,
+  };
+
+  const repoRoot = resolve(__dirname, '..', '..', '..');
+  const scorecardDir = join(repoRoot, '.lattice');
+  const scorecardPath = join(scorecardDir, 'scorecard.json');
+
+  await fs.mkdir(scorecardDir, { recursive: true });
+  await fs.writeFile(scorecardPath, JSON.stringify(scorecard, null, 2), 'utf-8');
+
+  console.log(`\nScorecard written to: ${scorecardPath}`);
+  
+  // Verify Cursor rules differ between fixtures
+  console.log('\nVerifying Cursor rules are stack-specific...');
+  const nextRulesPath = join(NEXT_FIXTURE_DIR, '.cursor', 'rules.md');
+  const expoRulesPath = join(EXPO_FIXTURE_DIR, '.cursor', 'rules.md');
+  
+  try {
+    const nextRules = await fs.readFile(nextRulesPath, 'utf-8');
+    const expoRules = await fs.readFile(expoRulesPath, 'utf-8');
+    
+    if (nextRules === expoRules) {
+      throw new Error('Cursor rules are identical between nextjs and expo-eas fixtures. Rules must be stack-specific.');
+    }
+    
+    // Verify rules contain stack-specific content
+    if (!nextRules.includes('Next.js') || !nextRules.includes('App Router')) {
+      throw new Error('Next.js fixture rules missing Next.js-specific content');
+    }
+    
+    if (!expoRules.includes('Expo') || !expoRules.includes('EAS')) {
+      throw new Error('Expo EAS fixture rules missing Expo-specific content');
+    }
+    
+    console.log('✓ Cursor rules are stack-specific and differ between fixtures');
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`Cursor rules file not found: ${error.message}`);
+    }
+    throw error;
+  }
+  
+  if (failedFixtures.length > 0) {
+    console.log(`\nFailed fixtures preserved: ${failedFixtures.join(', ')}`);
+    console.log('Harness failed!');
+    process.exit(1);
+  }
+  
   console.log('\nHarness completed successfully!');
 }
 
