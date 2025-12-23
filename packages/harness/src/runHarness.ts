@@ -71,6 +71,16 @@ async function runFixture(
 ): Promise<void> {
   console.log(`\n=== Running ${projectType} fixture ===`);
 
+  // Preserve lockfile if it exists (it should be committed to fixtures)
+  const lockFile = join(fixtureDir, 'package-lock.json');
+  let lockFileContent: Buffer | null = null;
+  try {
+    lockFileContent = await fs.readFile(lockFile);
+  } catch {
+    // Lockfile doesn't exist - this is an error, fixtures should have lockfiles committed
+    throw new Error(`package-lock.json not found in ${fixtureDir}. Lockfiles must be committed to fixtures.`);
+  }
+
   console.log(`Resetting fixture directory: ${fixtureDir}...`);
   await resetFixture(fixtureDir);
 
@@ -91,22 +101,14 @@ async function runFixture(
   console.log('Writing files to fixture...');
   await writeFiles(result.files, fixtureDir);
 
+  // Restore the lockfile
+  if (lockFileContent) {
+    await fs.writeFile(lockFile, lockFileContent);
+  }
+
   console.log('Running verification commands...');
-  const lockFile = join(fixtureDir, 'package-lock.json');
-  let lockFileExisted = true;
-  try {
-    await fs.access(lockFile);
-  } catch {
-    console.log('Generating package-lock.json...');
-    runCommand('npm install', fixtureDir);
-    lockFileExisted = false;
-  }
-  
-  // Only run npm ci if the lock file already existed
-  // If we just generated it with npm install, skip npm ci to avoid Windows file locking issues
-  if (lockFileExisted) {
-    runCommand('npm ci', fixtureDir);
-  }
+  // Always use npm ci - lockfile should always exist
+  runCommand('npm ci', fixtureDir);
   runCommand('npm run lint', fixtureDir);
   runCommand('npm run typecheck', fixtureDir);
   runCommand('npm test', fixtureDir);
