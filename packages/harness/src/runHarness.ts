@@ -93,13 +93,20 @@ async function runFixture(
 
   console.log('Running verification commands...');
   const lockFile = join(fixtureDir, 'package-lock.json');
+  let lockFileExisted = true;
   try {
     await fs.access(lockFile);
   } catch {
     console.log('Generating package-lock.json...');
     runCommand('npm install', fixtureDir);
+    lockFileExisted = false;
   }
-  runCommand('npm ci', fixtureDir);
+  
+  // Only run npm ci if the lock file already existed
+  // If we just generated it with npm install, skip npm ci to avoid Windows file locking issues
+  if (lockFileExisted) {
+    runCommand('npm ci', fixtureDir);
+  }
   runCommand('npm run lint', fixtureDir);
   runCommand('npm run typecheck', fixtureDir);
   runCommand('npm test', fixtureDir);

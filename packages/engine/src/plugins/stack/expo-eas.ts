@@ -49,6 +49,7 @@ export class ExpoEasPlugin implements Plugin {
         '@types/jest': '^29.5.11',
         'ts-jest': '^29.1.1',
         '@testing-library/react-native': '^12.8.0',
+        'react-test-renderer': '18.3.1',
         'jest-expo': '~52.0.0',
         '@testing-library/jest-native': '^5.4.3',
       },
