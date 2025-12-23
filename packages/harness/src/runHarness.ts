@@ -3,24 +3,25 @@ import { join, dirname } from 'path';
 import { execSync } from 'child_process';
 import { Renderer } from '@lattice/engine';
 import { InMemoryPluginRegistry } from '@lattice/engine';
-import { NextJsPlugin } from '@lattice/engine';
+import { NextJsPlugin, ExpoEasPlugin } from '@lattice/engine';
 import { validateProjectConfig } from '@lattice/engine';
 import { resolvePolicy } from '@lattice/engine';
 
-const FIXTURE_DIR = join(__dirname, '..', 'fixtures', 'next-min');
+const NEXT_FIXTURE_DIR = join(__dirname, '..', 'fixtures', 'next-min');
+const EXPO_FIXTURE_DIR = join(__dirname, '..', 'fixtures', 'expo-min');
 
-async function resetFixture(): Promise<void> {
+async function resetFixture(dir: string): Promise<void> {
   try {
-    await fs.rm(FIXTURE_DIR, { recursive: true, force: true });
+    await fs.rm(dir, { recursive: true, force: true });
   } catch (error) {
     // Ignore if directory doesn't exist
   }
-  await fs.mkdir(FIXTURE_DIR, { recursive: true });
+  await fs.mkdir(dir, { recursive: true });
 }
 
-async function writeFiles(files: Map<string, Buffer>): Promise<void> {
+async function writeFiles(files: Map<string, Buffer>, fixtureDir: string): Promise<void> {
   for (const [path, content] of files.entries()) {
-    const fullPath = join(FIXTURE_DIR, path);
+    const fullPath = join(fixtureDir, path);
     const dir = dirname(fullPath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(fullPath, content);
@@ -29,12 +30,13 @@ async function writeFiles(files: Map<string, Buffer>): Promise<void> {
   // Add .gitignore to fixture
   const gitignore = `node_modules/
 .next/
+.expo/
 out/
 dist/
 *.log
 .DS_Store
 `;
-  await fs.writeFile(join(FIXTURE_DIR, '.gitignore'), gitignore);
+  await fs.writeFile(join(fixtureDir, '.gitignore'), gitignore);
 }
 
 function runCommand(command: string, cwd: string): void {
@@ -61,18 +63,23 @@ function runCommand(command: string, cwd: string): void {
   }
 }
 
-async function runHarness(): Promise<void> {
-  console.log('Starting harness...');
+async function runFixture(
+  fixtureDir: string,
+  plugin: any,
+  projectType: 'nextjs' | 'expo-eas',
+  buildCommand: string
+): Promise<void> {
+  console.log(`\n=== Running ${projectType} fixture ===`);
 
-  console.log('Resetting fixture directory...');
-  await resetFixture();
+  console.log(`Resetting fixture directory: ${fixtureDir}...`);
+  await resetFixture(fixtureDir);
 
-  console.log('Generating Next.js pack...');
+  console.log(`Generating ${projectType} pack...`);
   const registry = new InMemoryPluginRegistry();
-  registry.register(new NextJsPlugin());
+  registry.register(plugin);
 
   const config = validateProjectConfig({
-    projectType: 'nextjs',
+    projectType,
     strictnessPreset: 'startup',
   });
   const policy = resolvePolicy(config);
@@ -82,23 +89,32 @@ async function runHarness(): Promise<void> {
 
   console.log(`Generated ${result.files.size} files`);
   console.log('Writing files to fixture...');
-  await writeFiles(result.files);
+  await writeFiles(result.files, fixtureDir);
 
   console.log('Running verification commands...');
-  const lockFile = join(FIXTURE_DIR, 'package-lock.json');
+  const lockFile = join(fixtureDir, 'package-lock.json');
   try {
     await fs.access(lockFile);
   } catch {
     console.log('Generating package-lock.json...');
-    runCommand('npm install', FIXTURE_DIR);
+    runCommand('npm install', fixtureDir);
   }
-  runCommand('npm ci', FIXTURE_DIR);
-  runCommand('npm run lint', FIXTURE_DIR);
-  runCommand('npm run typecheck', FIXTURE_DIR);
-  runCommand('npm test', FIXTURE_DIR);
-  runCommand('npm run build', FIXTURE_DIR);
+  runCommand('npm ci', fixtureDir);
+  runCommand('npm run lint', fixtureDir);
+  runCommand('npm run typecheck', fixtureDir);
+  runCommand('npm test', fixtureDir);
+  runCommand(buildCommand, fixtureDir);
 
-  console.log('Harness completed successfully!');
+  console.log(`${projectType} fixture completed successfully!`);
+}
+
+async function runHarness(): Promise<void> {
+  console.log('Starting harness...');
+
+  await runFixture(NEXT_FIXTURE_DIR, new NextJsPlugin(), 'nextjs', 'npm run build');
+  await runFixture(EXPO_FIXTURE_DIR, new ExpoEasPlugin(), 'expo-eas', 'npm run typecheck');
+
+  console.log('\nHarness completed successfully!');
 }
 
 if (require.main === module) {
