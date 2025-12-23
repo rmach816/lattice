@@ -1,6 +1,6 @@
 {
   "name": "lattice",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "CLI-first monorepo for Lattice generator",
   "workspaces": [
@@ -12,7 +12,8 @@
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces",
     "clean": "npm run clean --workspaces && rimraf node_modules",
-    "harness": "npm run build --workspace=@lattice/engine && npm run build --workspace=@lattice/harness && npm run run --workspace=@lattice/harness"
+    "harness": "npm run build --workspace=@lattice/engine && npm run build --workspace=@lattice/harness && npm run run --workspace=@lattice/harness",
+    "release:tag": "node scripts/release-tag.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

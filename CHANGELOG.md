@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-12-23
+
+### Engine
+- Made Cursor rules stack-specific: Next.js plugin generates Next.js-tailored rules, Expo EAS plugin generates Expo/EAS-tailored rules
+- Rules include stack-specific guidelines for file structure, verification commands, and best practices
+
+### Harness
+- Added verification to assert Cursor rules content differs between fixtures
+- Ensures stack-specific rules are correctly generated for each project type
+
 ## [0.1.0] - 2025-12-23
 
 ### Engine
