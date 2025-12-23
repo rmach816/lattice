@@ -2,6 +2,9 @@
   "name": "@lattice/cli",
   "version": "0.1.0",
   "description": "CLI wrapper for Lattice generator",
+  "bin": {
+    "lattice": "./dist/index.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
