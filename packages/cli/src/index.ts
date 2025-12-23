@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { promises as fs } from 'fs';
-import { join, dirname, resolve } from 'path';
+import { join, dirname, resolve, normalize, isAbsolute, sep } from 'path';
 import { Renderer } from '@lattice/engine';
 import { InMemoryPluginRegistry } from '@lattice/engine';
 import { NextJsPlugin } from '@lattice/engine';
@@ -9,12 +9,31 @@ import { validateProjectConfig } from '@lattice/engine';
 import { resolvePolicy } from '@lattice/engine';
 import type { Manifest } from '@lattice/engine';
 
+function validateFilePath(filePath: string): void {
+  if (filePath.includes('..')) {
+    throw new Error(`Path traversal detected: ${filePath}`);
+  }
+  if (isAbsolute(filePath)) {
+    throw new Error(`Absolute path not allowed: ${filePath}`);
+  }
+}
+
 async function writeFiles(
   files: Map<string, Buffer>,
   outputDir: string
 ): Promise<void> {
+  const absOutputDir = normalize(resolve(outputDir));
+  
   for (const [path, content] of files.entries()) {
-    const fullPath = join(outputDir, path);
+    validateFilePath(path);
+    
+    const normalizedPath = normalize(path).replace(/\\/g, '/');
+    const fullPath = normalize(resolve(absOutputDir, normalizedPath));
+    
+    if (!fullPath.startsWith(absOutputDir)) {
+      throw new Error(`Path outside output directory: ${path}`);
+    }
+    
     const dir = dirname(fullPath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(fullPath, content);
@@ -71,17 +90,25 @@ async function apply(packDir: string, targetDir: string): Promise<void> {
     throw new Error(`Failed to read manifest: ${manifestPath}`);
   }
 
-  const absTargetDir = resolve(targetDir);
+  const absPackDir = normalize(resolve(packDir));
+  const absTargetDir = normalize(resolve(targetDir));
   await fs.mkdir(absTargetDir, { recursive: true });
 
-  console.log(`Applying pack from ${packDir} to ${absTargetDir}...`);
+  console.log(`Applying pack from ${absPackDir} to ${absTargetDir}...`);
 
   const conflicts: string[] = [];
   let added = 0;
-
+  
   for (const file of manifest.files) {
-    const sourcePath = join(packDir, file.path);
-    const targetPath = join(absTargetDir, file.path);
+    validateFilePath(file.path);
+    
+    const normalizedPath = normalize(file.path).replace(/\\/g, '/');
+    const sourcePath = normalize(join(absPackDir, normalizedPath));
+    const targetPath = normalize(resolve(absTargetDir, normalizedPath));
+    
+    if (!targetPath.startsWith(absTargetDir)) {
+      throw new Error(`Path outside target directory: ${file.path}`);
+    }
 
     try {
       await fs.access(targetPath);
