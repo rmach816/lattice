@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Build engine
+        run: npm run build --workspace=@lattice/engine
+      
       - name: Lint
         run: npm run lint
       
@@ -36,4 +39,6 @@ jobs:
       
       - name: Run harness
         run: npm run harness
+        continue-on-error: false
+        timeout-minutes: 30
 
