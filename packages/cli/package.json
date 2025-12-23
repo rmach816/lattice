@@ -1,0 +1,23 @@
+{
+  "name": "@lattice/cli",
+  "version": "0.1.0",
+  "description": "CLI wrapper for Lattice generator",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "echo \"No linting configured yet\"",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests yet\"",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@lattice/engine": "file:../engine"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}
+
