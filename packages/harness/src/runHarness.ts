@@ -85,7 +85,14 @@ async function runHarness(): Promise<void> {
   await writeFiles(result.files);
 
   console.log('Running verification commands...');
-  runCommand('npm install', FIXTURE_DIR);
+  const lockFile = join(FIXTURE_DIR, 'package-lock.json');
+  try {
+    await fs.access(lockFile);
+  } catch {
+    console.log('Generating package-lock.json...');
+    runCommand('npm install', FIXTURE_DIR);
+  }
+  runCommand('npm ci', FIXTURE_DIR);
   runCommand('npm run lint', FIXTURE_DIR);
   runCommand('npm run typecheck', FIXTURE_DIR);
   runCommand('npm test', FIXTURE_DIR);
