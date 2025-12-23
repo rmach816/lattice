@@ -2,14 +2,15 @@
   "name": "@lattice/harness",
   "version": "0.1.0",
   "description": "Automated validation harness for Lattice generator",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/runHarness.js",
+  "types": "./dist/runHarness.d.ts",
   "scripts": {
     "build": "tsc",
     "lint": "echo \"No linting configured yet\"",
     "typecheck": "tsc --noEmit",
     "test": "echo \"No tests yet\"",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "run": "node dist/runHarness.js"
   },
   "dependencies": {
     "@lattice/engine": "file:../engine"

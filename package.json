@@ -11,7 +11,8 @@
     "lint": "npm run lint --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces",
-    "clean": "npm run clean --workspaces && rimraf node_modules"
+    "clean": "npm run clean --workspaces && rimraf node_modules",
+    "harness": "npm run build --workspace=@lattice/harness && npm run build --workspace=@lattice/engine && npm run run --workspace=@lattice/harness"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
