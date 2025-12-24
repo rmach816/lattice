@@ -164,8 +164,9 @@ async function runFixture(
     throw new Error(`${buildCommand} failed with exit code ${buildResult.exitCode}`);
   }
 
-  // Verify rules file
-  const verifyRulesResult = runCommand('npx lattice verify-rules --stack ' + projectType, fixtureDir);
+  // Verify rules file - use CLI from monorepo, not from fixture
+  const cliPath = resolve(__dirname, '..', '..', 'cli', 'dist', 'index.js');
+  const verifyRulesResult = runCommand(`node "${cliPath}" verify-rules --stack ${projectType}`, fixtureDir);
   commands.push({ command: 'lattice verify-rules', ...verifyRulesResult });
   if (verifyRulesResult.status === 'fail') {
     throw new Error(`lattice verify-rules failed with exit code ${verifyRulesResult.exitCode}`);
