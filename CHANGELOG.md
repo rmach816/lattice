@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-12-24
+
+### CLI
+- Added `lattice verify-rules` command for rules enforcement
+- Validates `.cursor/rules.md` versioning header, latticeVersion, stack, and required sections
+- Provides clear error messages for missing, outdated, or incorrect rules
+- Supports optional `--rules <path>` and `--stack <stack>` flags
+
+### Harness
+- Integrated `lattice verify-rules` into fixture validation pipeline
+- Ensures generated rules are verified after build in each fixture
+- Validates rules match expected stack type
+
 ## [0.1.2] - 2025-12-24
 
 ### Engine
@@ -52,7 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integrated scorecard artifact upload in CI workflows
 - Added support for preserving failing fixtures as CI artifacts
 
-[Unreleased]: https://github.com/rmach816/lattice/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/rmach816/lattice/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/rmach816/lattice/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/rmach816/lattice/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/rmach816/lattice/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rmach816/lattice/releases/tag/v0.1.0
