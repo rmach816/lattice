@@ -56,10 +56,18 @@ async function generate(outputDir: string, configPath?: string): Promise<void> {
     const configContent = await fs.readFile(configPath, 'utf-8');
     config = validateProjectConfig(JSON.parse(configContent));
   } else {
-    config = validateProjectConfig({
-      projectType: 'nextjs',
-      strictnessPreset: 'startup',
-    });
+    // Try to use .lattice/config.json if it exists
+    const defaultConfigPath = join(process.cwd(), '.lattice', 'config.json');
+    try {
+      const configContent = await fs.readFile(defaultConfigPath, 'utf-8');
+      config = validateProjectConfig(JSON.parse(configContent));
+    } catch {
+      // Fall back to default config if .lattice/config.json doesn't exist
+      config = validateProjectConfig({
+        projectType: 'nextjs',
+        strictnessPreset: 'startup',
+      });
+    }
   }
 
   const registry = new InMemoryPluginRegistry();
@@ -172,6 +180,96 @@ async function getLatticeVersion(): Promise<string> {
   }
 }
 
+async function init(
+  projectType?: string,
+  preset?: string,
+  billing?: string,
+  analytics?: string,
+  observability?: string,
+  testing?: string,
+  force?: boolean
+): Promise<void> {
+  // Validate required flags
+  if (!projectType) {
+    throw new Error('--projectType is required. Must be "nextjs" or "expo-eas"');
+  }
+  if (!preset) {
+    throw new Error('--preset is required. Must be "startup", "pro", or "enterprise"');
+  }
+
+  // Validate projectType
+  if (projectType !== 'nextjs' && projectType !== 'expo-eas') {
+    throw new Error(`Invalid --projectType: ${projectType}. Must be "nextjs" or "expo-eas"`);
+  }
+
+  // Validate preset
+  if (preset !== 'startup' && preset !== 'pro' && preset !== 'enterprise') {
+    throw new Error(`Invalid --preset: ${preset}. Must be "startup", "pro", or "enterprise"`);
+  }
+
+  // Validate optional flags if provided
+  if (billing && billing !== 'none' && billing !== 'stripe' && billing !== 'revenuecat') {
+    throw new Error(`Invalid --billing: ${billing}. Must be "none", "stripe", or "revenuecat"`);
+  }
+  if (analytics && analytics !== 'none' && analytics !== 'amplitude' && analytics !== 'mixpanel' && analytics !== 'posthog') {
+    throw new Error(`Invalid --analytics: ${analytics}. Must be "none", "amplitude", "mixpanel", or "posthog"`);
+  }
+  if (observability && observability !== 'none' && observability !== 'sentry') {
+    throw new Error(`Invalid --observability: ${observability}. Must be "none" or "sentry"`);
+  }
+  if (testing && testing !== 'none' && testing !== 'unit' && testing !== 'unit-e2e') {
+    throw new Error(`Invalid --testing: ${testing}. Must be "none", "unit", or "unit-e2e"`);
+  }
+
+  // Build ProjectConfig object
+  const config: any = {
+    projectType: projectType as 'nextjs' | 'expo-eas',
+    strictnessPreset: preset as 'startup' | 'pro' | 'enterprise',
+  };
+
+  if (billing) {
+    config.billingProvider = billing as 'none' | 'stripe' | 'revenuecat';
+  }
+  if (analytics) {
+    config.analyticsProvider = analytics as 'none' | 'amplitude' | 'mixpanel' | 'posthog';
+  }
+  if (observability) {
+    config.observability = observability as 'none' | 'sentry';
+  }
+  if (testing) {
+    config.testingLevel = testing as 'none' | 'unit' | 'unit-e2e';
+  }
+
+  // Validate using engine schema
+  const validatedConfig = validateProjectConfig(config);
+
+  // Check if config file already exists
+  const configPath = join(process.cwd(), '.lattice', 'config.json');
+  try {
+    await fs.access(configPath);
+    if (!force) {
+      throw new Error(`Config file already exists: ${configPath}. Use --force to overwrite.`);
+    }
+  } catch (error: any) {
+    if (error.code !== 'ENOENT' && !force) {
+      throw error;
+    }
+  }
+
+  // Create .lattice directory if missing
+  const configDir = dirname(configPath);
+  await fs.mkdir(configDir, { recursive: true });
+
+  // Write config file
+  await fs.writeFile(
+    configPath,
+    JSON.stringify(validatedConfig, null, 2) + '\n',
+    'utf-8'
+  );
+
+  console.log(`✓ Created config file: ${configPath}`);
+}
+
 async function verifyRules(rulesPath?: string, expectedStack?: string): Promise<void> {
   const rulesFilePath = rulesPath || join(process.cwd(), '.cursor', 'rules.md');
   
@@ -267,7 +365,24 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
 
-  if (command === 'generate') {
+  if (command === 'init') {
+    const projectTypeIndex = args.indexOf('--projectType') + 1;
+    const presetIndex = args.indexOf('--preset') + 1;
+    const billingIndex = args.indexOf('--billing') + 1;
+    const analyticsIndex = args.indexOf('--analytics') + 1;
+    const observabilityIndex = args.indexOf('--observability') + 1;
+    const testingIndex = args.indexOf('--testing') + 1;
+    const force = args.includes('--force');
+
+    const projectType = projectTypeIndex > 0 && args[projectTypeIndex] ? args[projectTypeIndex] : undefined;
+    const preset = presetIndex > 0 && args[presetIndex] ? args[presetIndex] : undefined;
+    const billing = billingIndex > 0 && args[billingIndex] ? args[billingIndex] : undefined;
+    const analytics = analyticsIndex > 0 && args[analyticsIndex] ? args[analyticsIndex] : undefined;
+    const observability = observabilityIndex > 0 && args[observabilityIndex] ? args[observabilityIndex] : undefined;
+    const testing = testingIndex > 0 && args[testingIndex] ? args[testingIndex] : undefined;
+
+    await init(projectType, preset, billing, analytics, observability, testing, force);
+  } else if (command === 'generate') {
     const outputIndex = args.indexOf('--output') + 1;
     const configIndex = args.indexOf('--config') + 1;
     const outputDir = outputIndex > 0 && args[outputIndex] ? args[outputIndex] : './lattice-pack';
@@ -290,6 +405,7 @@ async function main(): Promise<void> {
     await verifyRules(rulesPath, expectedStack);
   } else {
     console.error('Usage:');
+    console.error('  lattice init --projectType <nextjs|expo-eas> --preset <startup|pro|enterprise> [--billing <none|stripe|revenuecat>] [--analytics <none|amplitude|mixpanel|posthog>] [--observability <none|sentry>] [--testing <none|unit|unit-e2e>] [--force]');
     console.error('  lattice generate [--output <dir>] [--config <path>]');
     console.error('  lattice apply [--pack <dir>] [--target <dir>]');
     console.error('  lattice verify-rules [--rules <path>] [--stack <stack>]');
@@ -304,4 +420,4 @@ if (require.main === module) {
   });
 }
 
-export { generate, apply, verifyRules };
+export { generate, apply, verifyRules, init };
