@@ -136,6 +136,133 @@ async function apply(packDir: string, targetDir: string): Promise<void> {
   }
 }
 
+async function getLatticeVersion(): Promise<string> {
+  try {
+    // Try to find root package.json by going up from node_modules or current dir
+    const currentDir = process.cwd();
+    let packageJsonPath = join(currentDir, 'package.json');
+    
+    // If we're in a workspace, try to find the root
+    let attempts = 0;
+    while (attempts < 10) {
+      try {
+        const content = await fs.readFile(packageJsonPath, 'utf-8');
+        const pkg = JSON.parse(content);
+        if (pkg.name === 'lattice' || pkg.workspaces) {
+          return pkg.version || '0.0.0';
+        }
+      } catch {
+        // Continue searching
+      }
+      packageJsonPath = join(dirname(packageJsonPath), '..', 'package.json');
+      attempts++;
+    }
+    
+    // Fallback: try relative to CLI package
+    try {
+      const cliPackageJson = resolve(__dirname, '..', '..', '..', 'package.json');
+      const content = await fs.readFile(cliPackageJson, 'utf-8');
+      const pkg = JSON.parse(content);
+      return pkg.version || '0.0.0';
+    } catch {
+      return '0.0.0';
+    }
+  } catch {
+    return '0.0.0';
+  }
+}
+
+async function verifyRules(rulesPath?: string, expectedStack?: string): Promise<void> {
+  const rulesFilePath = rulesPath || join(process.cwd(), '.cursor', 'rules.md');
+  
+  let rulesContent: string;
+  try {
+    rulesContent = await fs.readFile(rulesFilePath, 'utf-8');
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      throw new Error(`Rules file not found: ${rulesFilePath}`);
+    }
+    throw new Error(`Failed to read rules file: ${rulesFilePath} - ${error.message}`);
+  }
+
+  // Verify versioning header exists
+  const headerMatch = rulesContent.match(/<!--\nlatticeVersion: (.*)\nstack: (.*)\npolicyVersion: (.*)\nconfigHash: (.*)\n-->/);
+  if (!headerMatch) {
+    throw new Error(`Rules file missing versioning header. Expected format:\n<!--\nlatticeVersion: <version>\nstack: <stack>\npolicyVersion: <version>\nconfigHash: <hash>\n-->`);
+  }
+
+  const [, latticeVersion, stack, policyVersion, configHash] = headerMatch;
+
+  // Verify latticeVersion matches current version
+  const currentVersion = await getLatticeVersion();
+  if (latticeVersion !== currentVersion) {
+    throw new Error(`Rules file has outdated latticeVersion. Expected: ${currentVersion}, Got: ${latticeVersion}`);
+  }
+
+  // Verify stack if expected
+  if (expectedStack && stack !== expectedStack) {
+    throw new Error(`Rules file has incorrect stack. Expected: ${expectedStack}, Got: ${stack}`);
+  }
+
+  // Verify stack is valid
+  if (stack !== 'nextjs' && stack !== 'expo-eas') {
+    throw new Error(`Rules file has invalid stack value: ${stack}. Must be 'nextjs' or 'expo-eas'`);
+  }
+
+  // Verify policyVersion format
+  if (!/^\d+\.\d+\.\d+$/.test(policyVersion)) {
+    throw new Error(`Rules file has invalid policyVersion format: ${policyVersion}. Expected semantic version (e.g., 1.0.0)`);
+  }
+
+  // Verify configHash is SHA-256 (64 hex characters)
+  if (!/^[a-f0-9]{64}$/i.test(configHash)) {
+    throw new Error(`Rules file has invalid configHash format: ${configHash}. Expected SHA-256 hash (64 hex characters)`);
+  }
+
+  // Verify required sections exist
+  const requiredSections = [
+    'Core Operating Rules',
+    'Execution Discipline',
+    'Hard Stop Conditions',
+    'Non-Goals',
+    'Priority Order',
+  ];
+
+  const missingSections: string[] = [];
+  for (const section of requiredSections) {
+    if (!rulesContent.includes(`## ${section}`)) {
+      missingSections.push(section);
+    }
+  }
+
+  if (missingSections.length > 0) {
+    throw new Error(`Rules file missing required sections: ${missingSections.join(', ')}`);
+  }
+
+  // Verify stack-specific section exists
+  if (stack === 'nextjs') {
+    if (!rulesContent.includes('## Next.js-Specific Guidelines')) {
+      throw new Error(`Rules file missing required section: Next.js-Specific Guidelines`);
+    }
+    if (!rulesContent.includes('Next.js') || !rulesContent.includes('App Router')) {
+      throw new Error(`Rules file missing Next.js-specific content`);
+    }
+  } else if (stack === 'expo-eas') {
+    if (!rulesContent.includes('## Expo EAS-Specific Guidelines')) {
+      throw new Error(`Rules file missing required section: Expo EAS-Specific Guidelines`);
+    }
+    if (!rulesContent.includes('Expo') || !rulesContent.includes('EAS')) {
+      throw new Error(`Rules file missing Expo EAS-specific content`);
+    }
+  }
+
+  console.log(`✓ Rules file verified successfully`);
+  console.log(`  latticeVersion: ${latticeVersion}`);
+  console.log(`  stack: ${stack}`);
+  console.log(`  policyVersion: ${policyVersion}`);
+  console.log(`  configHash: ${configHash.substring(0, 8)}...`);
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -154,10 +281,18 @@ async function main(): Promise<void> {
     const targetDir = targetIndex > 0 && args[targetIndex] ? args[targetIndex] : '.';
 
     await apply(packDir, targetDir);
+  } else if (command === 'verify-rules') {
+    const rulesIndex = args.indexOf('--rules') + 1;
+    const stackIndex = args.indexOf('--stack') + 1;
+    const rulesPath = rulesIndex > 0 && args[rulesIndex] ? args[rulesIndex] : undefined;
+    const expectedStack = stackIndex > 0 && args[stackIndex] ? args[stackIndex] : undefined;
+
+    await verifyRules(rulesPath, expectedStack);
   } else {
     console.error('Usage:');
     console.error('  lattice generate [--output <dir>] [--config <path>]');
     console.error('  lattice apply [--pack <dir>] [--target <dir>]');
+    console.error('  lattice verify-rules [--rules <path>] [--stack <stack>]');
     process.exit(1);
   }
 }
@@ -169,4 +304,4 @@ if (require.main === module) {
   });
 }
 
-export { generate, apply };
+export { generate, apply, verifyRules };
