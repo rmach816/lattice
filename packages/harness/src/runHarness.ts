@@ -251,8 +251,8 @@ async function runHarness(): Promise<void> {
 
   console.log(`\nScorecard written to: ${scorecardPath}`);
   
-  // Verify Cursor rules differ between fixtures
-  console.log('\nVerifying Cursor rules are stack-specific...');
+  // Verify Cursor rules differ between fixtures and include versioning
+  console.log('\nVerifying Cursor rules are stack-specific and versioned...');
   const nextRulesPath = join(NEXT_FIXTURE_DIR, '.cursor', 'rules.md');
   const expoRulesPath = join(EXPO_FIXTURE_DIR, '.cursor', 'rules.md');
   
@@ -273,7 +273,30 @@ async function runHarness(): Promise<void> {
       throw new Error('Expo EAS fixture rules missing Expo-specific content');
     }
     
-    console.log('✓ Cursor rules are stack-specific and differ between fixtures');
+    // Verify versioning header in Next.js rules
+    const expectedLatticeVersion = latticeVersion;
+    if (!nextRules.includes(`latticeVersion: ${expectedLatticeVersion}`)) {
+      throw new Error(`Next.js fixture rules missing correct latticeVersion. Expected: ${expectedLatticeVersion}`);
+    }
+    if (!nextRules.includes('stack: nextjs')) {
+      throw new Error('Next.js fixture rules missing stack: nextjs in versioning header');
+    }
+    if (!nextRules.includes('generatedAt:')) {
+      throw new Error('Next.js fixture rules missing generatedAt in versioning header');
+    }
+    
+    // Verify versioning header in Expo EAS rules
+    if (!expoRules.includes(`latticeVersion: ${expectedLatticeVersion}`)) {
+      throw new Error(`Expo EAS fixture rules missing correct latticeVersion. Expected: ${expectedLatticeVersion}`);
+    }
+    if (!expoRules.includes('stack: expo-eas')) {
+      throw new Error('Expo EAS fixture rules missing stack: expo-eas in versioning header');
+    }
+    if (!expoRules.includes('generatedAt:')) {
+      throw new Error('Expo EAS fixture rules missing generatedAt in versioning header');
+    }
+    
+    console.log('✓ Cursor rules are stack-specific, differ between fixtures, and include correct versioning');
   } catch (error: any) {
     if (error.code === 'ENOENT') {
       throw new Error(`Cursor rules file not found: ${error.message}`);

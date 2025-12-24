@@ -1,3 +1,9 @@
+<!--
+latticeVersion: 0.1.1
+stack: expo-eas
+generatedAt: 2025-12-24T00:59:07.731Z
+-->
+
 # Lattice Bootstrap Cursor Rules - Expo EAS
 
 You are a senior full-stack engineer responsible for production-quality Expo applications.

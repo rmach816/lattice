@@ -1,6 +1,28 @@
 import type { Plugin, PluginId, PluginPhase, ConflictPolicy } from '../../plugin';
 import type { ProjectConfig } from '../../config';
 import type { GeneratorContext } from '../../context';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+
+function getLatticeVersion(): string {
+  try {
+    // Try to read from repo root package.json (relative to this file)
+    // This file is at: packages/engine/src/plugins/stack/expo-eas.ts
+    // Need to go up 5 levels to reach repo root
+    const currentDir = __dirname; // packages/engine/src/plugins/stack
+    const pluginsDir = dirname(currentDir); // packages/engine/src/plugins
+    const srcDir = dirname(pluginsDir); // packages/engine/src
+    const engineDir = dirname(srcDir); // packages/engine
+    const packagesDir = dirname(engineDir); // packages
+    const repoRoot = dirname(packagesDir); // root
+    const packageJsonPath = join(repoRoot, 'package.json');
+    const content = readFileSync(packageJsonPath, 'utf-8');
+    const pkg = JSON.parse(content);
+    return pkg.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 export class ExpoEasPlugin implements Plugin {
   id: PluginId = 'stack/expo-eas';
@@ -205,7 +227,16 @@ describe('Index', () => {
 `;
     ctx.addFile('app/index.test.tsx', Buffer.from(appIndexTest, 'utf-8'));
 
-    const cursorRules = `# Lattice Bootstrap Cursor Rules - Expo EAS
+    const latticeVersion = getLatticeVersion();
+    const generatedAt = new Date().toISOString();
+    
+    const cursorRules = `<!--
+latticeVersion: ${latticeVersion}
+stack: expo-eas
+generatedAt: ${generatedAt}
+-->
+
+# Lattice Bootstrap Cursor Rules - Expo EAS
 
 You are a senior full-stack engineer responsible for production-quality Expo applications.
 

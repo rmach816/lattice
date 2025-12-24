@@ -1,3 +1,9 @@
+<!--
+latticeVersion: 0.1.1
+stack: nextjs
+generatedAt: 2025-12-24T00:58:35.299Z
+-->
+
 # Lattice Bootstrap Cursor Rules - Next.js
 
 You are a senior full-stack engineer responsible for production-quality Next.js applications.

@@ -1,0 +1,75 @@
+{
+  "latticeVersion": "0.1.1",
+  "fixtures": [
+    {
+      "fixtureName": "next-min",
+      "stack": "nextjs",
+      "startTime": "2025-12-24T00:58:30.948Z",
+      "endTime": "2025-12-24T00:58:58.639Z",
+      "durationMs": 27691,
+      "commands": [
+        {
+          "command": "npm ci",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run lint",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run typecheck",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm test",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run build",
+          "status": "pass",
+          "exitCode": 0
+        }
+      ],
+      "overallStatus": "pass"
+    },
+    {
+      "fixtureName": "expo-min",
+      "stack": "expo-eas",
+      "startTime": "2025-12-24T00:58:58.639Z",
+      "endTime": "2025-12-24T00:59:28.821Z",
+      "durationMs": 30182,
+      "commands": [
+        {
+          "command": "npm ci",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run lint",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run typecheck",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm test",
+          "status": "pass",
+          "exitCode": 0
+        },
+        {
+          "command": "npm run typecheck",
+          "status": "pass",
+          "exitCode": 0
+        }
+      ],
+      "overallStatus": "pass"
+    }
+  ]
+}
