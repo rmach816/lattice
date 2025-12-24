@@ -108,14 +108,23 @@ async function runFixture(
   console.log(`Resetting fixture directory: ${fixtureDir}...`);
   await resetFixture(fixtureDir);
 
+  // Initialize config using CLI init command
+  console.log(`Initializing config for ${projectType}...`);
+  const cliPath = resolve(__dirname, '..', '..', 'cli', 'dist', 'index.js');
+  const initResult = runCommand(`node "${cliPath}" init --projectType ${projectType} --preset startup --force`, fixtureDir);
+  if (initResult.status === 'fail') {
+    throw new Error(`lattice init failed with exit code ${initResult.exitCode}`);
+  }
+
+  // Read config from .lattice/config.json
+  const configPath = join(fixtureDir, '.lattice', 'config.json');
+  const configContent = await fs.readFile(configPath, 'utf-8');
+  const config = validateProjectConfig(JSON.parse(configContent));
+
   console.log(`Generating ${projectType} pack...`);
   const registry = new InMemoryPluginRegistry();
   registry.register(plugin);
 
-  const config = validateProjectConfig({
-    projectType,
-    strictnessPreset: 'startup',
-  });
   const policy = resolvePolicy(config);
 
   const renderer = new Renderer(registry);
@@ -165,7 +174,6 @@ async function runFixture(
   }
 
   // Verify rules file - use CLI from monorepo, not from fixture
-  const cliPath = resolve(__dirname, '..', '..', 'cli', 'dist', 'index.js');
   const verifyRulesResult = runCommand(`node "${cliPath}" verify-rules --stack ${projectType}`, fixtureDir);
   commands.push({ command: 'lattice verify-rules', ...verifyRulesResult });
   if (verifyRulesResult.status === 'fail') {
