@@ -1,0 +1,51 @@
+name: Release Validation
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build engine
+        run: npm run build --workspace=@lattice/engine
+      
+      - name: Lint
+        run: npm run lint
+      
+      - name: Typecheck
+        run: npm run typecheck
+      
+      - name: Test
+        run: npm test
+      
+      - name: Run harness
+        run: npm run harness
+        continue-on-error: false
+        timeout-minutes: 30
+      
+      - name: Upload scorecard
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scorecard
+          path: .lattice/scorecard.json
+          retention-days: 30
+
