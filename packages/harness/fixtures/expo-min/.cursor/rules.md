@@ -1,7 +1,8 @@
 <!--
 latticeVersion: 0.1.1
 stack: expo-eas
-generatedAt: 2025-12-24T00:59:07.731Z
+policyVersion: 1.0.0
+configHash: 355e75d6bb87dd6f6bb10b604f87d7762b5cee2c06762808a968a1ca909e9a84
 -->
 
 # Lattice Bootstrap Cursor Rules - Expo EAS

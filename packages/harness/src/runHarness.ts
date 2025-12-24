@@ -281,8 +281,11 @@ async function runHarness(): Promise<void> {
     if (!nextRules.includes('stack: nextjs')) {
       throw new Error('Next.js fixture rules missing stack: nextjs in versioning header');
     }
-    if (!nextRules.includes('generatedAt:')) {
-      throw new Error('Next.js fixture rules missing generatedAt in versioning header');
+    if (!nextRules.includes('policyVersion:')) {
+      throw new Error('Next.js fixture rules missing policyVersion in versioning header');
+    }
+    if (!nextRules.includes('configHash:')) {
+      throw new Error('Next.js fixture rules missing configHash in versioning header');
     }
     
     // Verify versioning header in Expo EAS rules
@@ -292,8 +295,11 @@ async function runHarness(): Promise<void> {
     if (!expoRules.includes('stack: expo-eas')) {
       throw new Error('Expo EAS fixture rules missing stack: expo-eas in versioning header');
     }
-    if (!expoRules.includes('generatedAt:')) {
-      throw new Error('Expo EAS fixture rules missing generatedAt in versioning header');
+    if (!expoRules.includes('policyVersion:')) {
+      throw new Error('Expo EAS fixture rules missing policyVersion in versioning header');
+    }
+    if (!expoRules.includes('configHash:')) {
+      throw new Error('Expo EAS fixture rules missing configHash in versioning header');
     }
     
     console.log('✓ Cursor rules are stack-specific, differ between fixtures, and include correct versioning');

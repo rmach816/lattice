@@ -1,7 +1,8 @@
 <!--
 latticeVersion: 0.1.1
 stack: nextjs
-generatedAt: 2025-12-24T00:58:35.299Z
+policyVersion: 1.0.0
+configHash: 84a7ad7c4671cc307ac87114454167d17b4452bb657859b5b2478382b77e7b9b
 -->
 
 # Lattice Bootstrap Cursor Rules - Next.js

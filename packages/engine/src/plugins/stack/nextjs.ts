@@ -3,6 +3,7 @@ import type { ProjectConfig } from '../../config';
 import type { GeneratorContext } from '../../context';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
+import { createHash } from 'crypto';
 
 function getLatticeVersion(): string {
   try {
@@ -22,6 +23,11 @@ function getLatticeVersion(): string {
   } catch {
     return '0.0.0';
   }
+}
+
+function computeConfigHash(config: ProjectConfig): string {
+  const sorted = JSON.stringify(config, Object.keys(config).sort());
+  return createHash('sha256').update(sorted).digest('hex');
 }
 
 export class NextJsPlugin implements Plugin {
@@ -206,12 +212,14 @@ describe('Home', () => {
     ctx.addFile('app/page.test.tsx', Buffer.from(appPageTest, 'utf-8'));
 
     const latticeVersion = getLatticeVersion();
-    const generatedAt = new Date().toISOString();
+    const policyVersion = ctx.policy.version;
+    const configHash = computeConfigHash(ctx.config);
     
     const cursorRules = `<!--
 latticeVersion: ${latticeVersion}
 stack: nextjs
-generatedAt: ${generatedAt}
+policyVersion: ${policyVersion}
+configHash: ${configHash}
 -->
 
 # Lattice Bootstrap Cursor Rules - Next.js
