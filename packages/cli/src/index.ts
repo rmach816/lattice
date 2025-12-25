@@ -2,6 +2,7 @@
 
 import { promises as fs } from 'fs';
 import { join, dirname, resolve, normalize, isAbsolute, sep } from 'path';
+import { execSync } from 'child_process';
 import { Renderer } from '@lattice/engine';
 import { InMemoryPluginRegistry } from '@lattice/engine';
 import { NextJsPlugin } from '@lattice/engine';
@@ -270,6 +271,110 @@ async function init(
   console.log(`✓ Created config file: ${configPath}`);
 }
 
+interface CheckResult {
+  name: string;
+  status: 'pass' | 'warn' | 'fail';
+  message: string;
+}
+
+async function doctor(): Promise<void> {
+  const checks: CheckResult[] = [];
+  let hasFailures = false;
+
+  // Check Node version (should be Node 20)
+  try {
+    const nodeVersion = process.version;
+    const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+    if (majorVersion === 20) {
+      checks.push({ name: 'Node version', status: 'pass', message: `Node ${nodeVersion} (supported)` });
+    } else {
+      checks.push({ name: 'Node version', status: 'fail', message: `Node ${nodeVersion} (expected Node 20)` });
+      hasFailures = true;
+    }
+  } catch (error: any) {
+    checks.push({ name: 'Node version', status: 'fail', message: `Failed to check Node version: ${error.message}` });
+    hasFailures = true;
+  }
+
+  // Check npm is available
+  try {
+    execSync('npm --version', { stdio: 'pipe' });
+    checks.push({ name: 'npm available', status: 'pass', message: 'npm is available' });
+  } catch (error: any) {
+    checks.push({ name: 'npm available', status: 'fail', message: 'npm is not available' });
+    hasFailures = true;
+  }
+
+  // Check git is available
+  try {
+    execSync('git --version', { stdio: 'pipe' });
+    checks.push({ name: 'git available', status: 'pass', message: 'git is available' });
+  } catch (error: any) {
+    checks.push({ name: 'git available', status: 'fail', message: 'git is not available' });
+    hasFailures = true;
+  }
+
+  // Check current directory is a git repo
+  try {
+    execSync('git rev-parse --is-inside-work-tree', { stdio: 'pipe', cwd: process.cwd() });
+    checks.push({ name: 'git repo', status: 'pass', message: 'Current directory is a git repository' });
+  } catch (error: any) {
+    checks.push({ name: 'git repo', status: 'fail', message: 'Current directory is not a git repository' });
+    hasFailures = true;
+  }
+
+  // Check working tree is clean (warn if not, don't fail)
+  try {
+    const status = execSync('git status --porcelain', { stdio: 'pipe', encoding: 'utf-8', cwd: process.cwd() });
+    if (status.trim() === '') {
+      checks.push({ name: 'working tree', status: 'pass', message: 'Working tree is clean' });
+    } else {
+      checks.push({ name: 'working tree', status: 'warn', message: 'Working tree has uncommitted changes' });
+    }
+  } catch (error: any) {
+    // If git repo check passed but status fails, it's a warning
+    checks.push({ name: 'working tree', status: 'warn', message: 'Could not check working tree status' });
+  }
+
+  // Check package-lock.json exists (warn if not, don't fail)
+  const packageLockPath = join(process.cwd(), 'package-lock.json');
+  try {
+    await fs.access(packageLockPath);
+    checks.push({ name: 'package-lock.json', status: 'pass', message: 'package-lock.json exists' });
+  } catch (error: any) {
+    checks.push({ name: 'package-lock.json', status: 'warn', message: 'package-lock.json not found (recommended for deterministic installs)' });
+  }
+
+  // Check write permissions in repo root
+  try {
+    const testFile = join(process.cwd(), '.lattice-doctor-test');
+    try {
+      await fs.writeFile(testFile, 'test');
+      await fs.unlink(testFile);
+      checks.push({ name: 'write permissions', status: 'pass', message: 'Write permissions in repo root' });
+    } catch (error: any) {
+      checks.push({ name: 'write permissions', status: 'fail', message: 'No write permissions in repo root' });
+      hasFailures = true;
+    }
+  } catch (error: any) {
+    checks.push({ name: 'write permissions', status: 'fail', message: `Failed to check write permissions: ${error.message}` });
+    hasFailures = true;
+  }
+
+  // Print results
+  console.log('\nLattice Doctor - Environment Checks\n');
+  for (const check of checks) {
+    const icon = check.status === 'pass' ? '✓' : check.status === 'warn' ? '⚠' : '✗';
+    console.log(`${icon} ${check.name}: ${check.message}`);
+  }
+  console.log('');
+
+  // Exit with appropriate code
+  if (hasFailures) {
+    process.exit(1);
+  }
+}
+
 async function verifyRules(rulesPath?: string, expectedStack?: string): Promise<void> {
   const rulesFilePath = rulesPath || join(process.cwd(), '.cursor', 'rules.md');
   
@@ -403,12 +508,15 @@ async function main(): Promise<void> {
     const expectedStack = stackIndex > 0 && args[stackIndex] ? args[stackIndex] : undefined;
 
     await verifyRules(rulesPath, expectedStack);
+  } else if (command === 'doctor') {
+    await doctor();
   } else {
     console.error('Usage:');
     console.error('  lattice init --projectType <nextjs|expo-eas> --preset <startup|pro|enterprise> [--billing <none|stripe|revenuecat>] [--analytics <none|amplitude|mixpanel|posthog>] [--observability <none|sentry>] [--testing <none|unit|unit-e2e>] [--force]');
     console.error('  lattice generate [--output <dir>] [--config <path>]');
     console.error('  lattice apply [--pack <dir>] [--target <dir>]');
     console.error('  lattice verify-rules [--rules <path>] [--stack <stack>]');
+    console.error('  lattice doctor');
     process.exit(1);
   }
 }
@@ -420,4 +528,4 @@ if (require.main === module) {
   });
 }
 
-export { generate, apply, verifyRules, init };
+export { generate, apply, verifyRules, init, doctor };
