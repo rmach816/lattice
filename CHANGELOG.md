@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-01-15
+
+### CLI
+- Added `lattice doctor` command for environment preflight checks
+- Validates Node version (expects Node 20, matches CI)
+- Checks npm and git availability
+- Verifies current directory is a git repository
+- Warns if working tree has uncommitted changes (non-blocking)
+- Warns if package-lock.json is missing (non-blocking)
+- Checks write permissions in repo root
+- Exit code: 0 if no failures, 1 if any failures
+
 ## [0.1.4] - 2025-01-15
 
 ### CLI
