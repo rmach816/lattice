@@ -16,9 +16,12 @@ export class InMemoryGeneratorContext implements GeneratorContext {
   public readonly policy: Policy;
   public readonly files: FileMap = {};
 
-  constructor(config: ProjectConfig, policy: Policy) {
+  constructor(config: ProjectConfig, policy: Policy, existingFiles?: FileMap) {
     this.config = config;
     this.policy = policy;
+    if (existingFiles) {
+      Object.assign(this.files, existingFiles);
+    }
   }
 
   addFile(path: string, content: Buffer): void {
