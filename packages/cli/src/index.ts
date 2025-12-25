@@ -6,9 +6,10 @@ import { execSync } from 'child_process';
 import { Renderer } from '@lattice/engine';
 import { InMemoryPluginRegistry } from '@lattice/engine';
 import { NextJsPlugin } from '@lattice/engine';
+import { ExpoEasPlugin } from '@lattice/engine';
 import { validateProjectConfig } from '@lattice/engine';
 import { resolvePolicy } from '@lattice/engine';
-import type { Manifest } from '@lattice/engine';
+import type { Manifest, FileMap } from '@lattice/engine';
 
 function validateFilePath(filePath: string): void {
   if (filePath.includes('..')) {
@@ -51,6 +52,23 @@ async function writeManifest(manifest: Manifest, outputDir: string): Promise<voi
   );
 }
 
+async function scanExistingFiles(cwd: string): Promise<FileMap> {
+  const existingFiles: FileMap = {};
+  const keyFiles = ['package.json', 'tsconfig.json', 'app.json', 'next.config.js', 'eslint.config.mjs'];
+  
+  for (const file of keyFiles) {
+    const filePath = join(cwd, file);
+    try {
+      const content = await fs.readFile(filePath);
+      existingFiles[file] = content;
+    } catch {
+      // File doesn't exist, skip
+    }
+  }
+  
+  return existingFiles;
+}
+
 async function generate(outputDir: string, configPath?: string): Promise<void> {
   let config;
   if (configPath) {
@@ -73,10 +91,14 @@ async function generate(outputDir: string, configPath?: string): Promise<void> {
 
   const registry = new InMemoryPluginRegistry();
   registry.register(new NextJsPlugin());
+  registry.register(new ExpoEasPlugin());
+
+  // Scan current directory for existing files
+  const existingFiles = await scanExistingFiles(process.cwd());
 
   const policy = resolvePolicy(config);
   const renderer = new Renderer(registry);
-  const result = renderer.render(config, policy);
+  const result = renderer.render(config, policy, existingFiles);
 
   const absOutputDir = resolve(outputDir);
   await fs.mkdir(absOutputDir, { recursive: true });

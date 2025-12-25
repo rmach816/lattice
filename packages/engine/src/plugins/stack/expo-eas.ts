@@ -41,11 +41,11 @@ export class ExpoEasPlugin implements Plugin {
   }
 
   apply(ctx: GeneratorContext): void {
-    if (ctx.hasFile('package.json')) {
-      throw new Error('package.json already exists');
-    }
+    // For existing repos, skip project files and only generate .cursor/rules.md
+    const isExistingRepo = ctx.hasFile('package.json');
 
-    const packageJson = {
+    if (!isExistingRepo) {
+      const packageJson = {
       name: 'my-app',
       version: '0.1.0',
       private: true,
@@ -83,10 +83,10 @@ export class ExpoEasPlugin implements Plugin {
       },
     };
 
-    const packageJsonContent = JSON.stringify(packageJson, null, 2) + '\n';
-    ctx.addFile('package.json', Buffer.from(packageJsonContent, 'utf-8'));
+      const packageJsonContent = JSON.stringify(packageJson, null, 2) + '\n';
+      ctx.addFile('package.json', Buffer.from(packageJsonContent, 'utf-8'));
 
-    const tsconfigJson = {
+      const tsconfigJson = {
       extends: 'expo/tsconfig.base',
       compilerOptions: {
         strict: true,
@@ -98,10 +98,10 @@ export class ExpoEasPlugin implements Plugin {
       exclude: ['node_modules'],
     };
 
-    const tsconfigContent = JSON.stringify(tsconfigJson, null, 2) + '\n';
-    ctx.addFile('tsconfig.json', Buffer.from(tsconfigContent, 'utf-8'));
+      const tsconfigContent = JSON.stringify(tsconfigJson, null, 2) + '\n';
+      ctx.addFile('tsconfig.json', Buffer.from(tsconfigContent, 'utf-8'));
 
-    const appJson = {
+      const appJson = {
       expo: {
         name: 'my-app',
         slug: 'my-app',
@@ -132,10 +132,10 @@ export class ExpoEasPlugin implements Plugin {
       },
     };
 
-    const appJsonContent = JSON.stringify(appJson, null, 2) + '\n';
-    ctx.addFile('app.json', Buffer.from(appJsonContent, 'utf-8'));
+      const appJsonContent = JSON.stringify(appJson, null, 2) + '\n';
+      ctx.addFile('app.json', Buffer.from(appJsonContent, 'utf-8'));
 
-    const eslintConfigJs = `import tseslint from '@typescript-eslint/eslint-plugin';
+      const eslintConfigJs = `import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 
 export default [
@@ -163,9 +163,9 @@ export default [
   },
 ];
 `;
-    ctx.addFile('eslint.config.mjs', Buffer.from(eslintConfigJs, 'utf-8'));
+      ctx.addFile('eslint.config.mjs', Buffer.from(eslintConfigJs, 'utf-8'));
 
-    const appLayout = `import { Stack } from 'expo-router';
+      const appLayout = `import { Stack } from 'expo-router';
 
 export default function RootLayout() {
   return (
@@ -175,9 +175,9 @@ export default function RootLayout() {
   );
 }
 `;
-    ctx.addFile('app/_layout.tsx', Buffer.from(appLayout, 'utf-8'));
+      ctx.addFile('app/_layout.tsx', Buffer.from(appLayout, 'utf-8'));
 
-    const appIndex = `import { Text, View, StyleSheet } from 'react-native';
+      const appIndex = `import { Text, View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 export default function Index() {
@@ -202,9 +202,9 @@ const styles = StyleSheet.create({
   },
 });
 `;
-    ctx.addFile('app/index.tsx', Buffer.from(appIndex, 'utf-8'));
+      ctx.addFile('app/index.tsx', Buffer.from(appIndex, 'utf-8'));
 
-    const jestConfig = `module.exports = {
+      const jestConfig = `module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transformIgnorePatterns: [
@@ -215,13 +215,13 @@ const styles = StyleSheet.create({
   },
 };
 `;
-    ctx.addFile('jest.config.js', Buffer.from(jestConfig, 'utf-8'));
+      ctx.addFile('jest.config.js', Buffer.from(jestConfig, 'utf-8'));
 
-    const jestSetup = `import '@testing-library/jest-native/extend-expect';
+      const jestSetup = `import '@testing-library/jest-native/extend-expect';
 `;
-    ctx.addFile('jest.setup.js', Buffer.from(jestSetup, 'utf-8'));
+      ctx.addFile('jest.setup.js', Buffer.from(jestSetup, 'utf-8'));
 
-    const appIndexTest = `import { render, screen } from '@testing-library/react-native';
+      const appIndexTest = `import { render, screen } from '@testing-library/react-native';
 import Index from './index';
 
 describe('Index', () => {
@@ -231,8 +231,10 @@ describe('Index', () => {
   });
 });
 `;
-    ctx.addFile('app/index.test.tsx', Buffer.from(appIndexTest, 'utf-8'));
+      ctx.addFile('app/index.test.tsx', Buffer.from(appIndexTest, 'utf-8'));
+    }
 
+    // Always generate .cursor/rules.md (for both new and existing repos)
     const latticeVersion = getLatticeVersion();
     const policyVersion = ctx.policy.version;
     const configHash = computeConfigHash(ctx.config);

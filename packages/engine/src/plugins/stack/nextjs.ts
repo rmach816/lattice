@@ -41,11 +41,11 @@ export class NextJsPlugin implements Plugin {
   }
 
   apply(ctx: GeneratorContext): void {
-    if (ctx.hasFile('package.json')) {
-      throw new Error('package.json already exists');
-    }
+    // For existing repos, skip project files and only generate .cursor/rules.md
+    const isExistingRepo = ctx.hasFile('package.json');
 
-    const packageJson = {
+    if (!isExistingRepo) {
+      const packageJson = {
       name: 'my-app',
       version: '0.1.0',
       private: true,
@@ -79,10 +79,10 @@ export class NextJsPlugin implements Plugin {
       },
     };
 
-    const packageJsonContent = JSON.stringify(packageJson, null, 2) + '\n';
-    ctx.addFile('package.json', Buffer.from(packageJsonContent, 'utf-8'));
+      const packageJsonContent = JSON.stringify(packageJson, null, 2) + '\n';
+      ctx.addFile('package.json', Buffer.from(packageJsonContent, 'utf-8'));
 
-    const tsconfigJson = {
+      const tsconfigJson = {
       compilerOptions: {
         target: 'ES2022',
         lib: ['dom', 'dom.iterable', 'esnext'],
@@ -110,19 +110,19 @@ export class NextJsPlugin implements Plugin {
       exclude: ['node_modules'],
     };
 
-    const tsconfigContent = JSON.stringify(tsconfigJson, null, 2) + '\n';
-    ctx.addFile('tsconfig.json', Buffer.from(tsconfigContent, 'utf-8'));
+      const tsconfigContent = JSON.stringify(tsconfigJson, null, 2) + '\n';
+      ctx.addFile('tsconfig.json', Buffer.from(tsconfigContent, 'utf-8'));
 
-    const nextConfigJs = `/** @type {import('next').NextConfig} */
+      const nextConfigJs = `/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
 };
 
 module.exports = nextConfig;
 `;
-    ctx.addFile('next.config.js', Buffer.from(nextConfigJs, 'utf-8'));
+      ctx.addFile('next.config.js', Buffer.from(nextConfigJs, 'utf-8'));
 
-    const eslintConfigJs = `import tseslint from '@typescript-eslint/eslint-plugin';
+      const eslintConfigJs = `import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 
 export default [
@@ -150,9 +150,9 @@ export default [
   },
 ];
 `;
-    ctx.addFile('eslint.config.mjs', Buffer.from(eslintConfigJs, 'utf-8'));
+      ctx.addFile('eslint.config.mjs', Buffer.from(eslintConfigJs, 'utf-8'));
 
-    const appLayout = `export default function RootLayout({
+      const appLayout = `export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -164,9 +164,9 @@ export default [
   );
 }
 `;
-    ctx.addFile('app/layout.tsx', Buffer.from(appLayout, 'utf-8'));
+      ctx.addFile('app/layout.tsx', Buffer.from(appLayout, 'utf-8'));
 
-    const appPage = `export default function Home() {
+      const appPage = `export default function Home() {
   return (
     <main>
       <h1>Welcome to Next.js</h1>
@@ -174,9 +174,9 @@ export default [
   );
 }
 `;
-    ctx.addFile('app/page.tsx', Buffer.from(appPage, 'utf-8'));
+      ctx.addFile('app/page.tsx', Buffer.from(appPage, 'utf-8'));
 
-    const jestConfig = `const nextJest = require('next/jest');
+      const jestConfig = `const nextJest = require('next/jest');
 
 const createJestConfig = nextJest({
   dir: './',
@@ -192,13 +192,13 @@ const customJestConfig = {
 
 module.exports = createJestConfig(customJestConfig);
 `;
-    ctx.addFile('jest.config.js', Buffer.from(jestConfig, 'utf-8'));
+      ctx.addFile('jest.config.js', Buffer.from(jestConfig, 'utf-8'));
 
-    const jestSetup = `import '@testing-library/jest-dom';
+      const jestSetup = `import '@testing-library/jest-dom';
 `;
-    ctx.addFile('jest.setup.js', Buffer.from(jestSetup, 'utf-8'));
+      ctx.addFile('jest.setup.js', Buffer.from(jestSetup, 'utf-8'));
 
-    const appPageTest = `import { render, screen } from '@testing-library/react';
+      const appPageTest = `import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Home from './page';
 
@@ -209,8 +209,10 @@ describe('Home', () => {
   });
 });
 `;
-    ctx.addFile('app/page.test.tsx', Buffer.from(appPageTest, 'utf-8'));
+      ctx.addFile('app/page.test.tsx', Buffer.from(appPageTest, 'utf-8'));
+    }
 
+    // Always generate .cursor/rules.md (for both new and existing repos)
     const latticeVersion = getLatticeVersion();
     const policyVersion = ctx.policy.version;
     const configHash = computeConfigHash(ctx.config);

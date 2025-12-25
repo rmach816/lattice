@@ -43,7 +43,7 @@ export interface RenderResult {
 export class Renderer {
   constructor(private registry: PluginRegistry) {}
 
-  render(config: ProjectConfig, policy: Policy): RenderResult {
+  render(config: ProjectConfig, policy: Policy, existingFiles?: FileMap): RenderResult {
     const allPlugins = this.registry.getAll();
     const applicablePlugins = allPlugins.filter((p) => p.appliesTo(config));
 
@@ -56,7 +56,7 @@ export class Renderer {
     const orderedPlugins = resolvePluginOrder(applicablePlugins, this.registry);
     const groupedPlugins = groupPluginsByPhase(orderedPlugins);
 
-    const context = new InMemoryGeneratorContext(config, policy);
+    const context = new InMemoryGeneratorContext(config, policy, existingFiles);
     const fileWriters = new Map<string, string[]>();
 
     const phases: Array<'pre' | 'render' | 'post' | 'ci'> = ['pre', 'render', 'post', 'ci'];
